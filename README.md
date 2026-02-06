@@ -1,15 +1,16 @@
 # Screen Recorder
 
-A powerful Electron-based screen recorder application with area selection, video recording, pause/resume functionality, video clipping, and MP4 export capabilities.
+A powerful Electron-based screen recorder application with multi-monitor area selection, video recording, pause/resume functionality, video clipping, and microphone/system audio capture.
 
 ## Features
 
 - 🖥️ **Screen & Window Recording** - Record your entire screen or specific windows
-- 📐 **Area Selection** - Select a specific region of the screen to record
+- 📐 **Multi-Monitor Area Selection** - Select any region across multiple monitors
+- 🎤 **Audio Capture** - Records both system audio and microphone input (headphone/mic)
 - ⏸️ **Pause/Resume** - Control your recording with pause and resume functionality
-- ✂️ **Video Clipping** - Trim and clip recorded videos to desired length
+- ✂️ **Video Clipping** - Trim recorded videos to desired length using FFmpeg
 - 💾 **Custom Save Directory** - Choose where to save your recordings
-- ⚙️ **Quality Settings** - Adjust frame rate and video quality
+- ⚙️ **Quality & Frame Rate Settings** - Choose quality (Medium/High/Ultra) and frame rate (24/30/60 FPS)
 
 ## Installation
 

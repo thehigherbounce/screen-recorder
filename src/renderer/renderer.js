@@ -12,6 +12,7 @@ var recordingDuration = 0;
 var timerInterval = null;
 var settings = null;
 var areaOverlay = null;
+var lastSavedFile = null;
 
 // DOM Elements
 var selectAreaBtn = document.getElementById('selectAreaBtn');
@@ -30,20 +31,38 @@ var settingsPopup = document.getElementById('settingsPopup');
 var browseDirBtn = document.getElementById('browseDirBtn');
 var savePath = document.getElementById('savePath');
 var qualitySelect = document.getElementById('qualitySelect');
+var frameRateSelect = document.getElementById('frameRateSelect');
 var folderBtn = document.getElementById('folderBtn');
 var minimizeBtn = document.getElementById('minimizeBtn');
 var closeBtn = document.getElementById('closeBtn');
 
+// Clip dialog elements
+var clipDialog = document.getElementById('clipDialog');
+var clipInfo = document.getElementById('clipInfo');
+var clipStart = document.getElementById('clipStart');
+var clipEnd = document.getElementById('clipEnd');
+var clipSaveBtn = document.getElementById('clipSaveBtn');
+var clipCancelBtn = document.getElementById('clipCancelBtn');
+
 // Initialize
 async function init() {
   console.log('Initializing...');
+  
+  // Debug: check if elements exist
+  console.log('settingsBtn:', settingsBtn);
+  console.log('folderBtn:', folderBtn);
+  console.log('selectSourceBtn:', selectSourceBtn);
+  console.log('settingsPopup:', settingsPopup);
+  console.log('sourcePicker:', sourcePicker);
+  
   settings = await ipcRenderer.invoke('get-settings');
   if (settings) {
     savePath.textContent = settings.saveDirectory;
     qualitySelect.value = settings.quality;
+    if (frameRateSelect) frameRateSelect.value = settings.frameRate || 30;
   }
   setupEventListeners();
-  console.log('Ready');
+  console.log('Ready - event listeners attached');
 }
 
 // Create area overlay with corner brackets
@@ -332,11 +351,59 @@ async function saveRecording() {
   var fileName = 'recording-' + timestamp + '.webm';
   
   var filePath = await ipcRenderer.invoke('save-video', buffer, fileName);
+  lastSavedFile = filePath;
   sourceInfo.textContent = '✅ Saved!';
   console.log('Saved to:', filePath);
   
+  // Show clip option
+  showClipDialog(filePath, recordingDuration);
+  
   recordedChunks = [];
   timer.textContent = '00:00';
+}
+
+// Format duration as M:SS
+function formatDuration(ms) {
+  var secs = Math.floor(ms / 1000);
+  var mins = Math.floor(secs / 60);
+  secs = secs % 60;
+  return mins + ':' + String(secs).padStart(2, '0');
+}
+
+// Show clip dialog
+function showClipDialog(filePath, durationMs) {
+  if (!clipDialog) return;
+  
+  var durationStr = formatDuration(durationMs);
+  clipInfo.textContent = 'Duration: ' + durationStr;
+  clipStart.value = '0:00';
+  clipEnd.value = durationStr;
+  clipDialog.dataset.filePath = filePath;
+  clipDialog.classList.remove('hidden');
+}
+
+// Clip video
+async function clipVideo() {
+  var filePath = clipDialog.dataset.filePath;
+  var start = clipStart.value;
+  var end = clipEnd.value;
+  
+  if (!filePath) {
+    alert('No video to clip');
+    return;
+  }
+  
+  sourceInfo.textContent = '✂️ Clipping...';
+  clipDialog.classList.add('hidden');
+  
+  try {
+    var outputPath = await ipcRenderer.invoke('clip-video', filePath, start, end);
+    sourceInfo.textContent = '✅ Clip saved!';
+    console.log('Clip saved to:', outputPath);
+  } catch (err) {
+    console.error('Clip failed:', err);
+    sourceInfo.textContent = '❌ Clip failed';
+  }
 }
 
 // Timer
@@ -410,32 +477,59 @@ async function loadSources() {
 
 // Event listeners
 function setupEventListeners() {
+  console.log('Setting up event listeners...');
+  
   // Window controls
-  minimizeBtn.onclick = function() { ipcRenderer.send('minimize-window'); };
-  closeBtn.onclick = function() { ipcRenderer.send('close-window'); };
+  if (minimizeBtn) minimizeBtn.onclick = function() { ipcRenderer.send('minimize-window'); };
+  if (closeBtn) closeBtn.onclick = function() { ipcRenderer.send('close-window'); };
+  
+  // Helper to resize window for popups
+  function showPopup(popup) {
+    popup.classList.remove('hidden');
+    ipcRenderer.send('resize-window', 380);
+  }
+  
+  function hideAllPopups() {
+    sourcePicker.classList.add('hidden');
+    settingsPopup.classList.add('hidden');
+    if (clipDialog) clipDialog.classList.add('hidden');
+    ipcRenderer.send('resize-window', 140);
+  }
   
   // Source/area selection
-  selectSourceBtn.onclick = async function() {
-    await loadSources();
-    sourcePicker.classList.toggle('hidden');
-    settingsPopup.classList.add('hidden');
-  };
+  if (selectSourceBtn) {
+    selectSourceBtn.onclick = async function() {
+      console.log('Source button clicked');
+      var isHidden = sourcePicker.classList.contains('hidden');
+      hideAllPopups();
+      if (isHidden) {
+        await loadSources();
+        showPopup(sourcePicker);
+      }
+    };
+  }
   
-  selectAreaBtn.onclick = selectArea;
+  if (selectAreaBtn) selectAreaBtn.onclick = selectArea;
   
   // Recording controls
-  recordBtn.onclick = startRecording;
-  pauseBtn.onclick = pauseRecording;
-  resumeBtn.onclick = resumeRecording;
-  stopBtn.onclick = stopRecording;
+  if (recordBtn) recordBtn.onclick = startRecording;
+  if (pauseBtn) pauseBtn.onclick = pauseRecording;
+  if (resumeBtn) resumeBtn.onclick = resumeRecording;
+  if (stopBtn) stopBtn.onclick = stopRecording;
   
   // Settings
-  settingsBtn.onclick = function() {
-    settingsPopup.classList.toggle('hidden');
-    sourcePicker.classList.add('hidden');
-  };
+  if (settingsBtn) {
+    settingsBtn.onclick = function() {
+      console.log('Settings button clicked');
+      var isHidden = settingsPopup.classList.contains('hidden');
+      hideAllPopups();
+      if (isHidden) {
+        showPopup(settingsPopup);
+      }
+    };
+  }
   
-  browseDirBtn.onclick = async function() {
+  if (browseDirBtn) browseDirBtn.onclick = async function() {
     var dir = await ipcRenderer.invoke('select-directory');
     if (dir) {
       settings.saveDirectory = dir;
@@ -448,20 +542,32 @@ function setupEventListeners() {
     await ipcRenderer.invoke('save-settings', settings);
   };
   
-  // Open folder
-  folderBtn.onclick = function() {
-    ipcRenderer.invoke('open-file-location', settings.saveDirectory + '\\.');
-  };
+  // Frame rate change
+  if (frameRateSelect) {
+    frameRateSelect.onchange = async function() {
+      settings.frameRate = parseInt(frameRateSelect.value);
+      await ipcRenderer.invoke('save-settings', settings);
+    };
+  }
   
-  // Close popups on outside click
-  document.onclick = function(e) {
-    if (!sourcePicker.contains(e.target) && e.target !== selectSourceBtn) {
-      sourcePicker.classList.add('hidden');
-    }
-    if (!settingsPopup.contains(e.target) && e.target !== settingsBtn) {
-      settingsPopup.classList.add('hidden');
-    }
-  };
+  // Clip dialog buttons
+  if (clipSaveBtn) {
+    clipSaveBtn.onclick = clipVideo;
+  }
+  if (clipCancelBtn) {
+    clipCancelBtn.onclick = function() {
+      clipDialog.classList.add('hidden');
+      ipcRenderer.send('resize-window', 140);
+    };
+  }
+  
+  // Open folder
+  if (folderBtn) {
+    folderBtn.onclick = function() {
+      console.log('Folder button clicked');
+      ipcRenderer.invoke('open-file-location', settings.saveDirectory + '\\.');
+    };
+  }
 }
 
 // Start

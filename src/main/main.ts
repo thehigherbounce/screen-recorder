@@ -1,6 +1,15 @@
 import { app, BrowserWindow, ipcMain, desktopCapturer, dialog, screen, shell, globalShortcut } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
+import * as childProcess from 'child_process';
+
+// Get FFmpeg path
+let ffmpegPath: string;
+try {
+  ffmpegPath = require('@ffmpeg-installer/ffmpeg').path;
+} catch {
+  ffmpegPath = 'ffmpeg'; // Fallback to system ffmpeg
+}
 
 // Logging utility
 function log(message: string, data?: any): void {
@@ -31,13 +40,15 @@ interface SelectionBounds {
 interface AppSettings {
   saveDirectory: string;
   quality: 'medium' | 'high' | 'ultra';
+  frameRate: 24 | 30 | 60;
 }
 
 let mainWindow: BrowserWindow | null = null;
 let areaSelectionWindow: BrowserWindow | null = null;
 let settings: AppSettings = {
   saveDirectory: app.getPath('videos'),
-  quality: 'high'
+  quality: 'high',
+  frameRate: 30
 };
 
 const settingsPath = path.join(app.getPath('userData'), 'settings.json');
@@ -68,7 +79,6 @@ function createMainWindow(): void {
     height: 140,
     minWidth: 280,
     minHeight: 100,
-    maxHeight: 400,
     frame: false,
     transparent: false,
     alwaysOnTop: true,
@@ -239,12 +249,105 @@ ipcMain.on('close-window', () => {
   mainWindow?.close();
 });
 
+ipcMain.on('resize-window', (_, height: number) => {
+  if (mainWindow) {
+    const [width] = mainWindow.getSize();
+    mainWindow.setSize(width, height, true);
+  }
+});
+
 ipcMain.handle('get-screen-size', () => {
   const primaryDisplay = screen.getPrimaryDisplay();
   return {
     width: primaryDisplay.bounds.width,
     height: primaryDisplay.bounds.height
   };
+});
+
+// Clip video using FFmpeg
+ipcMain.handle('clip-video', async (_, inputPath: string, startTime: string, endTime: string) => {
+  log('Clipping video', { inputPath, startTime, endTime });
+  
+  const ext = path.extname(inputPath);
+  const basename = path.basename(inputPath, ext);
+  const outputPath = path.join(path.dirname(inputPath), `${basename}_clip${ext}`);
+  
+  return new Promise((resolve, reject) => {
+    // Convert time format (M:SS or MM:SS) to seconds
+    const parseTime = (t: string): number => {
+      const parts = t.split(':').map(Number);
+      if (parts.length === 2) return parts[0] * 60 + parts[1];
+      if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+      return Number(t) || 0;
+    };
+    
+    const start = parseTime(startTime);
+    const end = parseTime(endTime);
+    const duration = end - start;
+    
+    if (duration <= 0) {
+      reject(new Error('End time must be after start time'));
+      return;
+    }
+    
+    const args = [
+      '-i', inputPath,
+      '-ss', start.toString(),
+      '-t', duration.toString(),
+      '-c', 'copy', // Fast copy without re-encoding
+      '-y', // Overwrite output
+      outputPath
+    ];
+    
+    log('Running FFmpeg', { ffmpegPath, args });
+    
+    const proc = childProcess.spawn(ffmpegPath, args);
+    
+    proc.on('close', (code) => {
+      if (code === 0) {
+        log('Clip saved', outputPath);
+        resolve(outputPath);
+      } else {
+        reject(new Error(`FFmpeg exited with code ${code}`));
+      }
+    });
+    
+    proc.on('error', (err) => {
+      log('FFmpeg error', err);
+      reject(err);
+    });
+  });
+});
+
+// Get video duration
+ipcMain.handle('get-video-duration', async (_, filePath: string) => {
+  return new Promise((resolve) => {
+    const args = [
+      '-i', filePath,
+      '-show_entries', 'format=duration',
+      '-v', 'quiet',
+      '-of', 'csv=p=0'
+    ];
+    
+    // Use ffprobe if available, otherwise estimate
+    const ffprobePath = ffmpegPath.replace('ffmpeg', 'ffprobe');
+    
+    const proc = childProcess.spawn(ffprobePath, args);
+    let output = '';
+    
+    proc.stdout.on('data', (data) => {
+      output += data.toString();
+    });
+    
+    proc.on('close', () => {
+      const duration = parseFloat(output.trim()) || 0;
+      resolve(duration);
+    });
+    
+    proc.on('error', () => {
+      resolve(0); // Return 0 if ffprobe not available
+    });
+  });
 });
 
 // App lifecycle

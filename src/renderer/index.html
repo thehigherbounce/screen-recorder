@@ -119,6 +119,34 @@
         <option value="ultra">Ultra</option>
       </select>
     </div>
+    <div class="setting-row">
+      <label>Frame Rate:</label>
+      <select id="frameRateSelect">
+        <option value="24">24 FPS</option>
+        <option value="30">30 FPS</option>
+        <option value="60">60 FPS</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Clip dialog -->
+  <div id="clipDialog" class="popup clip-dialog hidden">
+    <div class="popup-header">✂️ Clip Video</div>
+    <div class="clip-info" id="clipInfo">No video loaded</div>
+    <div class="clip-controls">
+      <div class="time-input">
+        <label>Start:</label>
+        <input type="text" id="clipStart" placeholder="0:00" value="0:00">
+      </div>
+      <div class="time-input">
+        <label>End:</label>
+        <input type="text" id="clipEnd" placeholder="0:00">
+      </div>
+    </div>
+    <div class="clip-buttons">
+      <button id="clipSaveBtn" class="clip-btn save">Save Clip</button>
+      <button id="clipCancelBtn" class="clip-btn cancel">Cancel</button>
+    </div>
   </div>
 
   <script src="renderer.js"></script>
