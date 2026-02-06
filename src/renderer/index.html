@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; media-src 'self' blob:; img-src 'self' data: blob:;">
+  <title>Screen Recorder</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="toolbar">
+    <!-- Title bar for dragging -->
+    <div class="title-bar">
+      <span class="title">🎬 Recorder</span>
+      <div class="window-controls">
+        <button id="minimizeBtn" class="win-btn minimize" title="Minimize">─</button>
+        <button id="closeBtn" class="win-btn close" title="Close">✕</button>
+      </div>
+    </div>
+
+    <!-- Main controls -->
+    <div class="controls">
+      <!-- Source selection -->
+      <button id="selectSourceBtn" class="tool-btn" title="Select Screen/Window">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="2" y="3" width="20" height="14" rx="2"></rect>
+          <line x1="8" y1="21" x2="16" y2="21"></line>
+          <line x1="12" y1="17" x2="12" y2="21"></line>
+        </svg>
+      </button>
+
+      <!-- Area selection -->
+      <button id="selectAreaBtn" class="tool-btn" title="Select Area">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M4 4h4M4 4v4M20 4h-4M20 4v4M4 20h4M4 20v-4M20 20h-4M20 20v-4"></path>
+        </svg>
+      </button>
+
+      <div class="divider"></div>
+
+      <!-- Record button -->
+      <button id="recordBtn" class="tool-btn record-btn" title="Start Recording">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+          <circle cx="12" cy="12" r="8"></circle>
+        </svg>
+      </button>
+
+      <!-- Pause button -->
+      <button id="pauseBtn" class="tool-btn pause-btn hidden" title="Pause">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+          <rect x="6" y="4" width="4" height="16"></rect>
+          <rect x="14" y="4" width="4" height="16"></rect>
+        </svg>
+      </button>
+
+      <!-- Resume button -->
+      <button id="resumeBtn" class="tool-btn resume-btn hidden" title="Resume">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+          <polygon points="5,3 19,12 5,21"></polygon>
+        </svg>
+      </button>
+
+      <!-- Stop button -->
+      <button id="stopBtn" class="tool-btn stop-btn hidden" title="Stop Recording">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+          <rect x="4" y="4" width="16" height="16" rx="2"></rect>
+        </svg>
+      </button>
+
+      <div class="divider"></div>
+
+      <!-- Timer -->
+      <div id="timer" class="timer">00:00</div>
+
+      <!-- Status indicator -->
+      <div id="statusDot" class="status-dot"></div>
+
+      <!-- Folder button -->
+      <button id="folderBtn" class="tool-btn small" title="Open Recordings Folder">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"></path>
+        </svg>
+      </button>
+
+      <!-- Settings button -->
+      <button id="settingsBtn" class="tool-btn small" title="Settings">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4"></path>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Info bar -->
+    <div class="info-bar">
+      <span id="sourceInfo">Click 🖥️ to select source or ⛶ to select area</span>
+    </div>
+  </div>
+
+  <!-- Source picker popup -->
+  <div id="sourcePicker" class="popup hidden">
+    <div class="popup-header">Select Source</div>
+    <div id="sourceList" class="source-list"></div>
+  </div>
+
+  <!-- Settings popup -->
+  <div id="settingsPopup" class="popup hidden">
+    <div class="popup-header">Settings</div>
+    <div class="setting-row">
+      <label>Save to:</label>
+      <button id="browseDirBtn" class="browse-btn">Browse</button>
+    </div>
+    <div id="savePath" class="save-path">Loading...</div>
+    <div class="setting-row">
+      <label>Quality:</label>
+      <select id="qualitySelect">
+        <option value="medium">Medium</option>
+        <option value="high">High</option>
+        <option value="ultra">Ultra</option>
+      </select>
+    </div>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>
