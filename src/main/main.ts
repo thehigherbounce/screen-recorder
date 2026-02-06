@@ -99,20 +99,35 @@ function createAreaSelectionWindow(displayId?: string): void {
   log('Creating area selection window...', { displayId });
   const displays = screen.getAllDisplays();
   log('Available displays', displays.length);
-  const targetDisplay = displayId 
-    ? displays.find(d => d.id.toString() === displayId) || displays[0]
-    : screen.getPrimaryDisplay();
-  log('Target display', targetDisplay.bounds);
+  
+  // Calculate bounds that span ALL displays for multi-monitor support
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  
+  displays.forEach(display => {
+    minX = Math.min(minX, display.bounds.x);
+    minY = Math.min(minY, display.bounds.y);
+    maxX = Math.max(maxX, display.bounds.x + display.bounds.width);
+    maxY = Math.max(maxY, display.bounds.y + display.bounds.height);
+  });
+  
+  const totalBounds = {
+    x: minX,
+    y: minY,
+    width: maxX - minX,
+    height: maxY - minY
+  };
+  
+  log('Total display bounds (all monitors)', totalBounds);
 
   // Hide main window during selection
   mainWindow?.hide();
   log('Main window hidden');
 
   areaSelectionWindow = new BrowserWindow({
-    x: targetDisplay.bounds.x,
-    y: targetDisplay.bounds.y,
-    width: targetDisplay.bounds.width,
-    height: targetDisplay.bounds.height,
+    x: totalBounds.x,
+    y: totalBounds.y,
+    width: totalBounds.width,
+    height: totalBounds.height,
     frame: false,
     transparent: true,
     alwaysOnTop: true,
@@ -126,10 +141,9 @@ function createAreaSelectionWindow(displayId?: string): void {
     }
   });
 
-  // Maximize to cover full screen without using fullscreen mode
-  areaSelectionWindow.maximize();
+  // Don't maximize - use exact bounds to span all monitors
   areaSelectionWindow.setAlwaysOnTop(true, 'screen-saver');
-  log('Area selection window maximized');
+  log('Area selection window created spanning all monitors');
 
   areaSelectionWindow.loadFile(path.join(__dirname, '../../src/renderer/area-selector.html'));
   

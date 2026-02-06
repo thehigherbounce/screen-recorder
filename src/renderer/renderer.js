@@ -110,7 +110,7 @@ ipcRenderer.on('area-selected', function(event, bounds) {
   statusDot.className = 'status-dot ready';
 });
 
-// Start recording using desktopCapturer + getUserMedia (Electron native - no DirectX)
+// Start recording using desktopCapturer + getUserMedia (Electron native)
 async function startRecording() {
   console.log('=== Starting recording ===');
   sourceInfo.textContent = '⏳ Initializing...';
@@ -134,7 +134,7 @@ async function startRecording() {
     console.log('Using source:', source.name, source.id);
     sourceInfo.textContent = '⏳ Capturing...';
     
-    // Step 2: Use getUserMedia with chromeMediaSource (Electron-specific, avoids DirectX issues)
+    // Step 2: Get screen video + system audio together (more compatible)
     var constraints = {
       audio: {
         mandatory: {
@@ -144,27 +144,49 @@ async function startRecording() {
       video: {
         mandatory: {
           chromeMediaSource: 'desktop',
-          chromeMediaSourceId: source.id,
-          minWidth: 1280,
-          maxWidth: 1920,
-          minHeight: 720,
-          maxHeight: 1080
+          chromeMediaSourceId: source.id
         }
       }
     };
     
-    console.log('Requesting stream with constraints...');
-    
+    console.log('Requesting desktop stream...');
     try {
       mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
-    } catch (e1) {
-      console.log('Failed with audio, trying video only...', e1.message);
-      // Try without audio
+      console.log('Desktop stream with audio obtained!');
+    } catch (err) {
+      console.log('Failed with audio, trying video only:', err.message);
       constraints.audio = false;
       mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+      console.log('Video-only stream obtained');
     }
     
-    console.log('Stream obtained!');
+    // Step 3: Try to add microphone audio (for voice/headphone recording)
+    try {
+      // First check if any audio input devices exist
+      var devices = await navigator.mediaDevices.enumerateDevices();
+      var audioInputs = devices.filter(function(d) { return d.kind === 'audioinput'; });
+      console.log('Audio input devices found:', audioInputs.length);
+      
+      if (audioInputs.length > 0) {
+        var micStream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true
+          },
+          video: false
+        });
+        var micTrack = micStream.getAudioTracks()[0];
+        if (micTrack) {
+          mediaStream.addTrack(micTrack);
+          console.log('Microphone added:', micTrack.label);
+        }
+      }
+    } catch (micErr) {
+      console.log('Microphone not available:', micErr.message);
+    }
+    
+    console.log('Stream ready!');
     console.log('Video tracks:', mediaStream.getVideoTracks().length);
     console.log('Audio tracks:', mediaStream.getAudioTracks().length);
     
